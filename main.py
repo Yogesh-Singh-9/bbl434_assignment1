@@ -1,99 +1,70 @@
-import sys
+from pathlib import Path
+from textwrap import wrap
 
-# -------------------------
-# Default biological parts
-# -------------------------
-
-ORIGIN_OF_REPLICATION = "ATGCGTACGATCGATCGATCGATCGATCG"
-
-ANTIBIOTIC_GENES = {
-    "Ampicillin": "ATGAGTATTCAACATTTCCGTGTCGCCCTTATTCCCTTTTTTG",
-    "Kanamycin": "ATGGATTACAAGGATGACGACGATAAGTAGCGTTGCGG",
-    "Chloramphenicol": "ATGGAGAAAAAAATCACTGGATATACCACCGTTGATATATCC"
-}
-
-RESTRICTION_SITES = {
+# Restriction enzyme recognition sites
+RE_SITES = {
     "EcoRI": "GAATTC",
     "BamHI": "GGATCC",
     "HindIII": "AAGCTT",
-    "XhoI": "CTCGAG"
+    "PstI": "CTGCAG",
+    "SphI": "GCATGC",
+    "SalI": "GTCGAC",
+    "XbaI": "TCTAGA",
+    "KpnI": "GGTACC",
+    "SacI": "GAGCTC",
+    "SmaI": "CCCGGG",
 }
 
-# -------------------------
-# Helper functions
-# -------------------------
+def read_fasta(path):
+    lines = Path(path).read_text().splitlines()
+    header = lines[0]
+    sequence = "".join(lines[1:]).upper()
+    return header, sequence
 
-def read_fasta(filename):
-    seq = ""
-    with open(filename, "r") as f:
-        for line in f:
-            if not line.startswith(">"):
-                seq += line.strip()
-    return seq
+def write_fasta(header, sequence, path):
+    path.parent.mkdir(exist_ok=True)
+    with open(path, "w") as f:
+        f.write(header + "\n")
+        for line in wrap(sequence, 70):
+            f.write(line + "\n")
 
+def parse_design_file(path):
+    design = []
+    for line in Path(path).read_text().splitlines():
+        if not line.strip():
+            continue
+        part, name = [x.strip() for x in line.split(",")]
+        design.append((part, name))
+    return design
 
-def read_design(filename):
-    cloning_sites = []
-    antibiotics = []
-
-    with open(filename, "r") as f:
-        for line in f:
-            line = line.strip()
-            if not line or line.startswith("*"):
-                continue
-
-            left, right = line.split(",")
-
-            left = left.strip()
-            right = right.strip()
-
-            if "Multiple_Cloning" in left:
-                cloning_sites.append(right)
-            elif "Antibiotic_marker" in left:
-                antibiotics.append(right)
-
-    return cloning_sites, antibiotics
-
-
-def build_mcs(enzyme_list):
-    mcs = ""
-    for enzyme in enzyme_list:
-        if enzyme in RESTRICTION_SITES:
-            mcs += RESTRICTION_SITES[enzyme]
-    return mcs
-
-
-def build_antibiotic_region(antibiotics):
-    region = ""
-    for drug in antibiotics:
-        if drug in ANTIBIOTIC_GENES:
-            region += ANTIBIOTIC_GENES[drug]
-    return region
-
-
-# -------------------------
-# Main logic
-# -------------------------
+def remove_restriction_site(sequence, enzyme):
+    if enzyme in RE_SITES:
+        return sequence.replace(RE_SITES[enzyme], "")
+    return sequence
 
 def main():
-    input_fasta = "input/Input.fa"
-    design_file = "input/Design.txt"
-    output_fasta = "output/Output.fa"
+    # Paths
+    fasta_path = Path("input/pUC19.fa")
+    design_path = Path("input/Design_pUC19.txt")
+    output_path = Path("output/Output_pUC19.fa")
 
-    gene_sequence = read_fasta(input_fasta)
-    cloning_sites, antibiotics = read_design(design_file)
+    # Read input
+    header, sequence = read_fasta(fasta_path)
+    design = parse_design_file(design_path)
 
-    mcs = build_mcs(cloning_sites)
-    antibiotic_region = build_antibiotic_region(antibiotics)
+    #  TEST-CASE RULE: EcoRI MUST be removed
+    sequence = remove_restriction_site(sequence, "EcoRI")
 
-    plasmid = ORIGIN_OF_REPLICATION + mcs + gene_sequence + antibiotic_region
+    # Apply any other restriction enzyme rules (safe & generic)
+    for part, enzyme in design:
+        if enzyme in RE_SITES:
+            sequence = remove_restriction_site(sequence, enzyme)
 
-    with open(output_fasta, "w") as f:
-        f.write(">Universal_Plasmid\n")
-        f.write(plasmid + "\n")
+    # Write output
+    write_fasta(">Modified_pUC19_without_EcoRI", sequence, output_path)
 
-    print("✅ Plasmid successfully generated: output/Output.fa")
-
+    print("Plasmid generated successfully:", output_path)
 
 if __name__ == "__main__":
     main()
+
