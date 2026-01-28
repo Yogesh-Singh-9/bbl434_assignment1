@@ -131,3 +131,4 @@ print("FASTA file created successfully")
 print("ORI position:", ori_pos)
 print("Final plasmid size:", len(plasmid_seq), "bp")
 print("Output file:", output_file)
+
