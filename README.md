@@ -1,54 +1,60 @@
 # bbl434_assignment1
 
-A small Python utility to assemble a simple plasmid sequence from biological parts (origin of replication, restriction sites, a user gene, and antibiotic markers).
+A small Python utility that assembles a simple plasmid construct from three inputs: an input FASTA sequence, a design file, and a marker database. The script locates an approximate origin of replication using GC skew, then concatenates the chosen origin fragment, restriction sites, and marker sequences into an output FASTA.
 
 **Files**
 - [main.py](main.py): Program that reads inputs and generates the plasmid FASTA.
-- [input/Input.fa](input/Input.fa): Input gene sequence in FASTA format (single entry expected).
-- [input/Design.txt](input/Design.txt): Design specification listing cloning sites and antibiotic markers (comma-separated).
-- [output/Output.fa](output/Output.fa): Generated plasmid FASTA output.
+- `input/` : sample inputs are provided (e.g. `pUC19.fa`, `Design_pUC19.txt`, `markers.tab`).
+- `output/` : output FASTA(s) will be written here.
 
-**Quick start**
-1. Ensure you have Python 3 installed.
-2. Place your gene in `input/Input.fa` (FASTA header then sequence).
-3. Edit `input/Design.txt` to list cloning sites and antibiotic markers, one per line, using the format `Label, Name`.
-4. Run:
+**Usage**
+Run the script with three command-line arguments:
 
 ```bash
-python main.py
+python main.py <input_fasta> <design_txt> <markers_tab>
 ```
 
-The script writes the assembled plasmid to `output/Output.fa` with header `>Universal_Plasmid`.
+Example using the provided samples:
 
-**Design.txt format**
-- Lines beginning with `*` or empty lines are ignored.
-- Use labels containing `Multiple_Cloning` to indicate restriction enzymes, e.g. `Multiple_Cloning_Site1, EcoRI`.
-- Use labels containing `Antibiotic_marker` for antibiotics, e.g. `Antibiotic_marker1, Ampicillin`.
-- Supported restriction names (mapped in `main.py`): `EcoRI`, `BamHI`, `HindIII`, `XhoI`.
-- Supported antibiotics (mapped in `main.py`): `Ampicillin`, `Kanamycin`, `Chloramphenicol`.
+```bash
+python main.py input/pUC19.fa input/Design_pUC19.txt input/markers.tab
+```
+
+The script will write the assembled plasmid to `output/universal_plasmid.fa` and print the ORI position and final plasmid size. The FASTA header is `>Universal_Plasmid_Construct` and sequence lines are wrapped to 70 characters.
+
+**Design file format (`Design.txt`)**
+- Plain text, one entry per line, comma-separated: `Label, Name`.
+- Empty lines or lines without a comma are ignored.
+- If the `Label` contains the substring `site` (case-insensitive), the parser treats the `Name` as a restriction enzyme and appends its recognition sequence. Otherwise the `Name` is treated as a marker/feature and the corresponding marker sequence is appended.
+- Whitespace around fields is trimmed.
+
+Example lines from a design file:
+
+```
+BamHI_site, BamHI
+AmpR_gene, Ampicillin
+lacZ_alpha, Blue_White_Selection
+```
+
+**Marker database format (`markers.tab`)**
+- The script expects a pipe-separated table. It skips header lines containing `Category` or `---`.
+- It reads at least 4 columns; a short marker name is taken from column 3 (first word) and the description from column 4.
+
+**Supported restriction enzymes (recognized names in `main.py`)**
+- EcoRI, BamHI, HindIII, PstI, SphI, SalI, XbaI, KpnI, SacI, SmaI, NotI
+
+**Supported marker names (as present in `main.py`)**
+- Ampicillin, Kanamycin, Chloramphenicol, Blue_White_Selection
 
 **Notes & recommendations**
-- The output FASTA is written as a single long sequence line; many tools prefer wrapped lines (e.g., 60 chars). Consider adding wrapping if needed.
-- `main.py` currently concatenates all FASTA entries if multiple are present — use a single-entry FASTA for the gene, or modify `read_fasta` for multi-entry support.
-- Unknown enzyme or antibiotic names are silently ignored; add validation if you want explicit errors.
+- The script requires exactly three positional arguments; calling `python main.py` without arguments will print a usage message and exit.
+- The ORI detection uses a simple cumulative GC-skew scan and returns the index of the minimal skew point (an estimate, not a precise annotation).
+- Unknown enzyme or marker names found in the design file are silently ignored. If you prefer strict validation, I can add explicit warnings or failures.
+- The output FASTA is wrapped to 70 characters per line and uses the header `>Universal_Plasmid_Construct`.
 
-**Example**
-- `input/Input.fa`:
+**Possible improvements**
+- Add explicit validation and user-friendly error messages for unknown names.
+- Allow specifying output filename via an optional argument.
+- Make ORI window size configurable and/or annotate the assembled plasmid with feature positions.
 
-```text
->GeneX
-ATGAAACCCGGGTTTAAACCCGGGTTT
-```
-
-- `input/Design.txt`:
-
-```text
-Multiple_Cloning_Site1, EcoRI
-Multiple_Cloning_Site2, BamHI
-Antibiotic_marker1, Ampicillin
-Antibiotic_marker2, Kanamycin
-```
-
-Running `python main.py` will produce `output/Output.fa` with the assembled sequence.
-
-If you want, I can: wrap the FASTA output to 60 chars per line, add validation for `Design.txt`, or update `read_fasta` to return a specific entry — tell me which change you'd prefer.
+If you want, I can implement any of the improvements above (wrap-length change, validation, output filename option). Tell me which you'd like.
